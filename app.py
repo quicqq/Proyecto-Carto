@@ -51,7 +51,7 @@ html, body, [class*="css"] {
     overflow: hidden;
 }
 .header-banner::after {
-    content: "ENDI";
+    content: "ENCUESTA";
     position: absolute;
     right: 24px;
     top: 50%;
@@ -305,7 +305,7 @@ if "dissolve" not in st.session_state:
 #  SIDEBAR
 # ─────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🗺️ ENDI 2025")
+    st.markdown("### 🗺️ Enucesta Nacional")
     st.markdown("<p style='font-size:11px;color:#556677;margin-top:-8px'>Zonal Litoral · INEC</p>", unsafe_allow_html=True)
     st.divider()
 
@@ -313,7 +313,7 @@ with st.sidebar:
     uploaded_file = st.file_uploader(
         "Archivo .gpkg",
         type=["gpkg"],
-        help="GeoPackage con la muestra seleccionada de la ENDI"
+        help="GeoPackage con la muestra seleccionada"
     )
 
     if uploaded_file:
@@ -397,7 +397,7 @@ with st.sidebar:
 st.markdown("""
 <div class='header-banner'>
     <h1>Planificación Automática · Actualización Cartográfica</h1>
-    <p>ENDI 2025 &nbsp;·&nbsp; Zonal Litoral &nbsp;·&nbsp; INEC Ecuador</p>
+    <p>Encuesta Nacional &nbsp;·&nbsp; Zonal Litoral &nbsp;·&nbsp; INEC Ecuador</p>
 </div>
 """, unsafe_allow_html=True)
 
