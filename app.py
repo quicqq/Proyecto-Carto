@@ -369,7 +369,7 @@ with st.sidebar:
         mes_sel = st.selectbox(
             "Mes operativo",
             options=meses_disponibles,
-            format_func=lambda x: f"{meses_nombres.get(int(x), x)} (mes {int(x)})
+            format_func=lambda x: f"{meses_nombres.get(int(x), x)} (mes {int(x)})"
         )
 
         df_mes = data[data["mes"] == mes_sel].copy()
