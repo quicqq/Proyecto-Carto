@@ -220,62 +220,62 @@ html, body, [class*="css"] {
 #  FUNCIÓN PRINCIPAL (la tuya)
 # ─────────────────────────────────────────────
 def muestra_coordenada(archivo_gpkg, dissolve_by_upm=False):
-capas = pyogrio.list_layers(archivo_gpkg)
-man = gpd.read_file(archivo_gpkg, layer=capas[0][0])
-disp = gpd.read_file(archivo_gpkg, layer=capas[1][0])
-
-litoral_man = man[man['zonal'] == 'LITORAL']
-litoral_disp = disp[disp['zonal'] == 'LITORAL']
-
-litoral_man_utm = litoral_man.to_crs(epsg=32717)
-litoral_disp_utm = litoral_disp.to_crs(epsg=32717)
-
-if dissolve_by_upm:
-man_dissolved = litoral_man_utm.dissolve(by='upm', aggfunc={'mes': 'first', 'viv': 'sum'})
-man_dissolved['geometry'] = man_dissolved.geometry.representative_point()
-man_selected = man_dissolved[['mes', 'viv']].copy()
-man_selected['id_entidad'] = man_dissolved.index
-man_selected['upm'] = man_dissolved.index
-man_selected['tipo_entidad'] = 'man_upm'
-man_selected['x'] = man_dissolved.geometry.x
-man_selected['y'] = man_dissolved.geometry.y
-man_selected = man_selected[['id_entidad', 'upm', 'mes', 'viv', 'x', 'y', 'tipo_entidad']]
-
-disp_dissolved = litoral_disp_utm.dissolve(by='upm', aggfunc={'mes': 'first', 'viv': 'sum'})
-disp_dissolved['geometry'] = disp_dissolved.geometry.representative_point()
-disp_selected = disp_dissolved[['mes', 'viv']].copy()
-disp_selected['id_entidad'] = disp_dissolved.index
-disp_selected['upm'] = disp_dissolved.index
-disp_selected['tipo_entidad'] = 'sec_upm'
-disp_selected['x'] = disp_dissolved.geometry.x
-disp_selected['y'] = disp_dissolved.geometry.y
-disp_selected = disp_selected[['id_entidad', 'upm', 'mes', 'viv', 'x', 'y', 'tipo_entidad']]
-else:
-litoral_man_points_utm = litoral_man_utm.copy()
-litoral_man_points_utm['geometry'] = litoral_man_points_utm.geometry.representative_point()
-litoral_disp_points_utm = litoral_disp_utm.copy()
-litoral_disp_points_utm['geometry'] = litoral_disp_points_utm.geometry.representative_point()
-
-litoral_man_points_utm['x'] = litoral_man_points_utm.geometry.x
-litoral_man_points_utm['y'] = litoral_man_points_utm.geometry.y
-litoral_disp_points_utm['x'] = litoral_disp_points_utm.geometry.x
-litoral_disp_points_utm['y'] = litoral_disp_points_utm.geometry.y
-
-litoral_man_points_utm = litoral_man_points_utm.drop(columns=['geometry'])
-litoral_disp_points_utm = litoral_disp_points_utm.drop(columns=['geometry'])
-
-man_selected = litoral_man_points_utm[['man', 'upm', 'mes', 'viv', 'x', 'y']].copy()
-man_selected = man_selected.rename(columns={'man': 'id_entidad'})
-man_selected['tipo_entidad'] = 'man'
-
-disp_selected = litoral_disp_points_utm[['sec', 'upm', 'mes', 'viv', 'x', 'y']].copy()
-disp_selected = disp_selected.rename(columns={'sec': 'id_entidad'})
-disp_selected['tipo_entidad'] = 'sec'
-
-data = pd.concat([man_selected, disp_selected], ignore_index=True)
-
-if not dissolve_by_upm:
-data = data.drop_duplicates(subset=['id_entidad', 'upm'], keep='first')
+   capas = pyogrio.list_layers(archivo_gpkg)
+   man = gpd.read_file(archivo_gpkg, layer=capas[0][0])
+   disp = gpd.read_file(archivo_gpkg, layer=capas[1][0])
+   
+   litoral_man = man[man['zonal'] == 'LITORAL']
+   litoral_disp = disp[disp['zonal'] == 'LITORAL']
+   
+   litoral_man_utm = litoral_man.to_crs(epsg=32717)
+   litoral_disp_utm = litoral_disp.to_crs(epsg=32717)
+   
+   if dissolve_by_upm:
+   man_dissolved = litoral_man_utm.dissolve(by='upm', aggfunc={'mes': 'first', 'viv': 'sum'})
+   man_dissolved['geometry'] = man_dissolved.geometry.representative_point()
+   man_selected = man_dissolved[['mes', 'viv']].copy()
+   man_selected['id_entidad'] = man_dissolved.index
+   man_selected['upm'] = man_dissolved.index
+   man_selected['tipo_entidad'] = 'man_upm'
+   man_selected['x'] = man_dissolved.geometry.x
+   man_selected['y'] = man_dissolved.geometry.y
+   man_selected = man_selected[['id_entidad', 'upm', 'mes', 'viv', 'x', 'y', 'tipo_entidad']]
+   
+   disp_dissolved = litoral_disp_utm.dissolve(by='upm', aggfunc={'mes': 'first', 'viv': 'sum'})
+   disp_dissolved['geometry'] = disp_dissolved.geometry.representative_point()
+   disp_selected = disp_dissolved[['mes', 'viv']].copy()
+   disp_selected['id_entidad'] = disp_dissolved.index
+   disp_selected['upm'] = disp_dissolved.index
+   disp_selected['tipo_entidad'] = 'sec_upm'
+   disp_selected['x'] = disp_dissolved.geometry.x
+   disp_selected['y'] = disp_dissolved.geometry.y
+   disp_selected = disp_selected[['id_entidad', 'upm', 'mes', 'viv', 'x', 'y', 'tipo_entidad']]
+   else:
+   litoral_man_points_utm = litoral_man_utm.copy()
+   litoral_man_points_utm['geometry'] = litoral_man_points_utm.geometry.representative_point()
+   litoral_disp_points_utm = litoral_disp_utm.copy()
+   litoral_disp_points_utm['geometry'] = litoral_disp_points_utm.geometry.representative_point()
+   
+   litoral_man_points_utm['x'] = litoral_man_points_utm.geometry.x
+   litoral_man_points_utm['y'] = litoral_man_points_utm.geometry.y
+   litoral_disp_points_utm['x'] = litoral_disp_points_utm.geometry.x
+   litoral_disp_points_utm['y'] = litoral_disp_points_utm.geometry.y
+   
+   litoral_man_points_utm = litoral_man_points_utm.drop(columns=['geometry'])
+   litoral_disp_points_utm = litoral_disp_points_utm.drop(columns=['geometry'])
+   
+   man_selected = litoral_man_points_utm[['man', 'upm', 'mes', 'viv', 'x', 'y']].copy()
+   man_selected = man_selected.rename(columns={'man': 'id_entidad'})
+   man_selected['tipo_entidad'] = 'man'
+   
+   disp_selected = litoral_disp_points_utm[['sec', 'upm', 'mes', 'viv', 'x', 'y']].copy()
+   disp_selected = disp_selected.rename(columns={'sec': 'id_entidad'})
+   disp_selected['tipo_entidad'] = 'sec'
+   
+   data = pd.concat([man_selected, disp_selected], ignore_index=True)
+   
+   if not dissolve_by_upm:
+   data = data.drop_duplicates(subset=['id_entidad', 'upm'], keep='first')
 
 return data
 
@@ -283,23 +283,23 @@ return data
 #  UTM → WGS84
 # ─────────────────────────────────────────────
 def utm_to_wgs84(df):
-from pyproj import Transformer
-transformer = Transformer.from_crs("epsg:32717", "epsg:4326", always_xy=True)
-lons, lats = transformer.transform(df["x"].values, df["y"].values)
-df = df.copy()
-df["lon"] = lons
-df["lat"] = lats
+   from pyproj import Transformer
+   transformer = Transformer.from_crs("epsg:32717", "epsg:4326", always_xy=True)
+   lons, lats = transformer.transform(df["x"].values, df["y"].values)
+   df = df.copy()
+   df["lon"] = lons
+   df["lat"] = lats
 return df
 
 # ─────────────────────────────────────────────
 #  SESSION STATE
 # ─────────────────────────────────────────────
 if "data_raw" not in st.session_state:
-st.session_state.data_raw = None
+   st.session_state.data_raw = None
 if "data_filtered" not in st.session_state:
-st.session_state.data_filtered = None
+   st.session_state.data_filtered = None
 if "dissolve" not in st.session_state:
-st.session_state.dissolve = True
+   st.session_state.dissolve = True
 
 # ─────────────────────────────────────────────
 #  SIDEBAR
