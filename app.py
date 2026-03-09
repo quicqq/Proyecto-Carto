@@ -412,9 +412,10 @@ with st.sidebar:
         n_enc = st.number_input("Encuestadores por equipo", min_value=1, max_value=5, value=3, key='n_enc')
         n_vehiculos = st.number_input("Número de vehículos", min_value=1, max_value=20, value=4, key='n_vehiculos')
 
-        st.session_state.n_equipos = n_equipos
-        st.session_state.n_enc = n_enc
-        st.session_state.n_vehiculos = n_vehiculos
+        # These lines are redundant because the `key` argument in st.number_input automatically manages st.session_state
+        # st.session_state.n_equipos = n_equipos
+        # st.session_state.n_enc = n_enc
+        # st.session_state.n_vehiculos = n_vehiculos
 
         st.divider()
         total_enc = n_equipos * n_enc
@@ -755,7 +756,7 @@ with tab2:
                     surveyor_load, x='encuestador', y='viv', color='equipo',
                     title='Viviendas asignadas por Encuestador (por Equipo)',
                     labels={'encuestador': 'Encuestador', 'viv': 'Total Viviendas', 'equipo': 'Equipo'},
-                    template='plotly_dark',
+                    template="plotly_dark",
                     barmode='group',
                     color_discrete_sequence=px.colors.sequential.Viridis
                 )
