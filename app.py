@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
+import fiona
 import folium
-import pyogrio
 from streamlit_folium import st_folium
 import plotly.express as px
 import plotly.graph_objects as go
@@ -14,7 +14,7 @@ import os
 #  PAGE CONFIG
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="Planificación Cartográfica",
+    page_title="ENDI · Planificación Cartográfica",
     page_icon="🗺️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -51,7 +51,7 @@ html, body, [class*="css"] {
     overflow: hidden;
 }
 .header-banner::after {
-    content: "ENCUESTA";
+    content: "ENDI";
     position: absolute;
     right: 24px;
     top: 50%;
@@ -220,10 +220,10 @@ html, body, [class*="css"] {
 #  FUNCIÓN PRINCIPAL (la tuya)
 # ─────────────────────────────────────────────
 def muestra_coordenada(archivo_gpkg, dissolve_by_upm=False):
-    capas = pyogrio.list_layers(archivo_gpkg)
-    man = gpd.read_file(archivo_gpkg, layer=capas[0][0])
-    disp = gpd.read_file(archivo_gpkg, layer=capas[1][0])
-    
+    capas = fiona.listlayers(archivo_gpkg)
+    man = gpd.read_file(archivo_gpkg, layer=capas[0])
+    disp = gpd.read_file(archivo_gpkg, layer=capas[1])
+
     litoral_man = man[man['zonal'] == 'LITORAL']
     litoral_disp = disp[disp['zonal'] == 'LITORAL']
 
@@ -292,6 +292,14 @@ def utm_to_wgs84(df):
     return df
 
 # ─────────────────────────────────────────────
+#  CALCULATE COEFFICIENT OF VARIATION (CV)
+# ─────────────────────────────────────────────
+def calculate_cv(series):
+    if series.mean() == 0: # Avoid division by zero
+        return 0.0
+    return (series.std() / series.mean()) * 100
+
+# ─────────────────────────────────────────────
 #  SESSION STATE
 # ─────────────────────────────────────────────
 if "data_raw" not in st.session_state:
@@ -305,7 +313,7 @@ if "dissolve" not in st.session_state:
 #  SIDEBAR
 # ─────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🗺️ Enucesta Nacional")
+    st.markdown("### 🗺️ ENDI 2025")
     st.markdown("<p style='font-size:11px;color:#556677;margin-top:-8px'>Zonal Litoral · INEC</p>", unsafe_allow_html=True)
     st.divider()
 
@@ -313,7 +321,7 @@ with st.sidebar:
     uploaded_file = st.file_uploader(
         "Archivo .gpkg",
         type=["gpkg"],
-        help="GeoPackage con la muestra seleccionada"
+        help="GeoPackage con la muestra seleccionada de la ENDI"
     )
 
     if uploaded_file:
@@ -323,7 +331,7 @@ with st.sidebar:
         st.markdown("**⚙️ Parámetros de procesamiento**")
         dissolve_option = st.radio(
             "Nivel de análisis",
-            options=["Por UPM (disuelto)", "Por manzana"],
+            options=["Por UPM (disuelto)", "Por manzana/sector"],
             index=0,
             help="UPM agrupa manzanas contiguas en un solo punto representativo"
         )
@@ -361,16 +369,30 @@ with st.sidebar:
         mes_sel = st.selectbox(
             "Mes operativo",
             options=meses_disponibles,
-            format_func=lambda x: f"{meses_nombres.get(int(x), x)} (mes {int(x)})"
+            format_func=lambda x: f"{meses_nombres.get(int(x), x)} (mes {int(x)})
         )
 
         df_mes = data[data["mes"] == mes_sel].copy()
+        
+        if st.session_state.get('n_equipos') is not None and st.session_state.get('n_enc') is not None:
+            n_equipos_val = st.session_state.n_equipos
+            n_enc_val = st.session_state.n_enc
+            
+            if len(df_mes) > 0:
+                # Assign teams cyclically
+                df_mes['equipo'] = (np.arange(len(df_mes)) % n_equipos_val) + 1
+                
+                # Assign surveyors cyclically within each team
+                # Sort first to ensure consistent assignment within teams
+                df_mes = df_mes.sort_values(by=['equipo']).reset_index(drop=True)
+                df_mes['encuestador'] = (df_mes.groupby('equipo').cumcount() % n_enc_val) + 1
+                
         st.session_state.data_filtered = df_mes
 
         st.markdown("**🏢 Equipos de campo**")
-        n_equipos = st.number_input("Número de equipos", min_value=1, max_value=20, value=4)
-        n_enc = st.number_input("Encuestadores por equipo", min_value=1, max_value=5, value=3)
-        n_vehiculos = st.number_input("Número de vehículos", min_value=1, max_value=20, value=4)
+        n_equipos = st.number_input("Número de equipos", min_value=1, max_value=20, value=4, key='n_equipos')
+        n_enc = st.number_input("Encuestadores por equipo", min_value=1, max_value=5, value=3, key='n_enc')
+        n_vehiculos = st.number_input("Número de vehículos", min_value=1, max_value=20, value=4, key='n_vehiculos')
 
         st.session_state.n_equipos = n_equipos
         st.session_state.n_enc = n_enc
@@ -378,7 +400,7 @@ with st.sidebar:
 
         st.divider()
         total_enc = n_equipos * n_enc
-        total_viv = int(df_mes["viv"].sum())
+        total_viv = int(df_mes["viv"].sum()) if len(df_mes) > 0 else 0
         viv_x_enc = total_viv // total_enc if total_enc > 0 else 0
         st.markdown(f"""
         <div style='font-size:11px;color:#556677;line-height:2'>
@@ -397,7 +419,7 @@ with st.sidebar:
 st.markdown("""
 <div class='header-banner'>
     <h1>Planificación Automática · Actualización Cartográfica</h1>
-    <p>Encuesta Nacional &nbsp;·&nbsp; Zonal Litoral &nbsp;·&nbsp; INEC Ecuador</p>
+    <p>ENDI 2025 &nbsp;·&nbsp; Zonal Litoral &nbsp;·&nbsp; INEC Ecuador</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -465,7 +487,7 @@ with c4:
         <div class='sublabel'>sectores</div>
     </div>""", unsafe_allow_html=True)
 with c5:
-    cv = (df["viv"].std() / df["viv"].mean() * 100) if df["viv"].mean() > 0 else 0
+    cv = calculate_cv(df["viv"]) # Use the new function
     color = "#2ecc71" if cv < 50 else "#e74c3c"
     st.markdown(f"""<div class='metric-card'>
         <div class='value' style='color:{color}'>{cv:.1f}%</div>
@@ -494,7 +516,7 @@ with tab1:
 
         with col_ctrl:
             st.markdown("**Opciones de visualización**")
-            color_by = st.radio("Colorear por", ["Tipo de zona", "Viviendas (intensidad)"])
+            color_map_by = st.radio("Colorear puntos por", ["Tipo de zona", "Viviendas (intensidad)", "Equipo"]) # Added Equipo option
             show_inec = st.checkbox("Mostrar base INEC Guayaquil", value=True)
             map_tiles = st.selectbox("Fondo del mapa", ["CartoDB dark_matter", "CartoDB positron", "OpenStreetMap"])
 
@@ -521,14 +543,35 @@ with tab1:
                 ).add_to(m)
 
             # Puntos
+            color_palette_teams = px.colors.sequential.Viridis # Use a sequential palette for teams
+            n_equipos_displayed = df['equipo'].nunique() if 'equipo' in df.columns else 1
+            team_colors = {team_id: color_palette_teams[i % len(color_palette_teams)] for i, team_id in enumerate(sorted(df['equipo'].unique()))} if 'equipo' in df.columns else {}
+
             for _, row in df.iterrows():
                 es_man = row["tipo_entidad"] in ["man", "man_upm"]
-                if color_by == "Tipo de zona":
+                if color_map_by == "Tipo de zona":
                     color = "#3498db" if es_man else "#e67e22"
-                else:
+                elif color_map_by == "Viviendas (intensidad)":
                     max_viv = df["viv"].max()
                     intensidad = int(row["viv"] / max_viv * 200) + 55
                     color = f"#{intensidad:02x}{'88'}{'ff'}" if es_man else f"#ff{intensidad:02x}22"
+                elif color_map_by == "Equipo" and 'equipo' in row:
+                    color = team_colors.get(row['equipo'], '#888888') # Default to grey if team not in palette
+                else:
+                    color = '#888888' # Default color
+
+                popup_html = f"<b>ID:</b> {row['id_entidad']}<br>"\
+                             f"<b>UPM:</b> {row['upm']}<br>"\
+                             f"<b>Tipo:</b> {row['tipo_entidad']}<br>"\
+                             f"<b>Viviendas:</b> {int(row['viv'])}"
+                tooltip_text = f"{row['tipo_entidad']} · {int(row['viv'])} viv"
+
+                if 'equipo' in row:
+                    popup_html += f"<br><b>Equipo:</b> {int(row['equipo'])}"
+                    tooltip_text += f" · Equipo {int(row['equipo'])}"
+                if 'encuestador' in row:
+                    popup_html += f"<br><b>Encuestador:</b> {int(row['encuestador'])}"
+                    tooltip_text += f" · Enc. {int(row['encuestador'])}"
 
                 folium.CircleMarker(
                     location=[row["lat"], row["lon"]],
@@ -537,14 +580,8 @@ with tab1:
                     fill=True,
                     fill_color=color,
                     fill_opacity=0.8,
-                    popup=folium.Popup(
-                        f"<b>ID:</b> {row['id_entidad']}<br>"
-                        f"<b>UPM:</b> {row['upm']}<br>"
-                        f"<b>Tipo:</b> {row['tipo_entidad']}<br>"
-                        f"<b>Viviendas:</b> {int(row['viv'])}",
-                        max_width=200
-                    ),
-                    tooltip=f"{row['tipo_entidad']} · {int(row['viv'])} viv"
+                    popup=folium.Popup(popup_html, max_width=200),
+                    tooltip=tooltip_text
                 ).add_to(m)
 
             st_folium(m, width=None, height=520, returned_objects=[])
@@ -632,12 +669,69 @@ with tab2:
             entidades=("id_entidad","count"),
             viviendas_total=("viv","sum"),
             viviendas_media=("viv","mean"),
-            viviendas_cv=("viv", lambda x: x.std()/x.mean()*100 if x.mean()>0 else 0)
+            viviendas_cv=("viv", calculate_cv) # Use the new function
         ).reset_index()
         resumen_mes.columns = ["Mes","Entidades","Viviendas totales","Media viv","CV (%)"]
         resumen_mes["CV (%)"] = resumen_mes["CV (%)"].round(1)
         resumen_mes["Media viv"] = resumen_mes["Media viv"].round(1)
         st.dataframe(resumen_mes, use_container_width=True, height=280)
+        
+        # Display load distribution per team and surveyor (New charts)
+        if 'equipo' in df.columns and 'encuestador' in df.columns:
+            st.markdown("<div class='section-header'><span>Análisis de carga de trabajo por equipo y encuestador</span><div class='line'></div></div>", unsafe_allow_html=True)
+
+            # CV for teams
+            team_cv = df.groupby('equipo')['viv'].apply(calculate_cv).reset_index(name='CV (%)')
+            team_cv = team_cv.sort_values(by='equipo')
+            
+            st.markdown("**Coeficiente de Variación (CV) de viviendas por Equipo**")
+            st.info("Un CV bajo (idealmente <50%) indica una carga de trabajo más equilibrada entre los equipos.")
+            st.dataframe(team_cv, use_container_width=True)
+
+            # Drill-down for surveyors within a selected team
+            st.markdown("**CV de viviendas por Encuestador (drill-down por Equipo)**")
+            selected_team = st.selectbox(
+                "Seleccione un equipo para ver el CV de sus encuestadores:",
+                options=sorted(df['equipo'].unique()),
+                format_func=lambda x: f"Equipo {int(x)}"
+            )
+
+            if selected_team:
+                df_selected_team = df[df['equipo'] == selected_team]
+                surveyor_cv = df_selected_team.groupby('encuestador')['viv'].apply(calculate_cv).reset_index(name='CV (%)')
+                surveyor_cv = surveyor_cv.sort_values(by='encuestador')
+
+                st.info(f"CV de viviendas para los encuestadores del Equipo {int(selected_team)}. De manera similar, un CV bajo es deseable.")
+                st.dataframe(surveyor_cv, use_container_width=True)
+
+            st.markdown("<br>")
+
+            col_load1, col_load2 = st.columns(2)
+
+            with col_load1:
+                team_load = df.groupby('equipo')['viv'].sum().reset_index()
+                fig_team_load = px.bar(
+                    team_load, x='equipo', y='viv',
+                    title='Viviendas asignadas por Equipo (Suma)',
+                    labels={'equipo': 'Equipo', 'viv': 'Total Viviendas'},
+                    template='plotly_dark',
+                    color_discrete_sequence=px.colors.sequential.Viridis
+                )
+                fig_team_load.update_layout(paper_bgcolor="#1a1f2e", plot_bgcolor="#0d1117", title_font_size=13)
+                st.plotly_chart(fig_team_load, use_container_width=True)
+
+            with col_load2:
+                surveyor_load = df.groupby(['equipo', 'encuestador'])['viv'].sum().reset_index()
+                fig_surveyor_load = px.bar(
+                    surveyor_load, x='encuestador', y='viv', color='equipo',
+                    title='Viviendas asignadas por Encuestador (por Equipo)',
+                    labels={'encuestador': 'Encuestador', 'viv': 'Total Viviendas', 'equipo': 'Equipo'},
+                    template='plotly_dark',
+                    barmode='group',
+                    color_discrete_sequence=px.colors.sequential.Viridis
+                )
+                fig_surveyor_load.update_layout(paper_bgcolor="#1a1f2e", plot_bgcolor="#0d1117", title_font_size=13)
+                st.plotly_chart(fig_surveyor_load, use_container_width=True)
 
 # ══════════════════════════════════════════════
 #  TAB 3 — GENERADOR DE RUTAS
