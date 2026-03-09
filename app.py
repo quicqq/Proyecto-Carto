@@ -227,7 +227,7 @@ def muestra_coordenada(archivo_gpkg, dissolve_by_upm=False):
     capas = pyogrio.list_layers(archivo_gpkg)
     man = gpd.read_file(archivo_gpkg, layer=capas[0][0])
     disp = gpd.read_file(archivo_gpkg, layer=capas[1][0])
-    
+
     litoral_man = man[man['zonal'] == 'LITORAL']
     litoral_disp = disp[disp['zonal'] == 'LITORAL']
 
@@ -308,7 +308,7 @@ if "graph_G" not in st.session_state:
     st.session_state.graph_G = None
 if "tsp_results" not in st.session_state:
     st.session_state.tsp_results = {}
-if "road_paths" not in st.session_state:
+if "road_paths" not in st.session_state: 
     st.session_state.road_paths = {}
 
 
@@ -385,7 +385,7 @@ with st.sidebar:
         )
 
         df_mes = data[data["mes"] == mes_sel].copy()
-        
+
         # ─────────────────────────────────────────────
         #  Dynamic Team Configuration
         # ─────────────────────────────────────────────
@@ -409,7 +409,7 @@ with st.sidebar:
                 f"Integrantes Equipo {team['id']}",
                 min_value=1, max_value=5, value=team['surveyors'], key=f"surveyors_team_{team['id']}"
             )
-        
+
         # Calculate n_equipos and n_enc from dynamic configurations
         n_equipos_val = len(st.session_state.team_configs)
         total_surveyors_configured = sum(t['surveyors'] for t in st.session_state.team_configs)
@@ -423,9 +423,9 @@ with st.sidebar:
         # ─────────────────────────────────────────────
         #  Update Team/Surveyor Assignment Logic
         # ─────────────────────────────────────────────
-        if len(df_mes) > 0:            
+        if len(df_mes) > 0:
             df_mes = df_mes.copy() # Ensure we are working on a copy to avoid SettingWithCopyWarning
-            
+
             # Assign teams cyclically
             df_mes['equipo'] = pd.Series(team_ids * (len(df_mes) // len(team_ids) + 1)).head(len(df_mes)).values
 
@@ -450,8 +450,6 @@ with st.sidebar:
         st.session_state.data_filtered = df_mes # Update the session state with assigned teams/surveyors
 
         n_vehiculos = st.number_input("Número de vehículos", min_value=1, max_value=20, value=4, key='n_vehiculos')
-        # The explicit assignment below is redundant because key='n_vehiculos' already handles it.
-        # st.session_state.n_vehiculos = n_vehiculos
 
         st.divider()
         total_viv = int(df_mes["viv"].sum()) if len(df_mes) > 0 else 0
@@ -740,7 +738,7 @@ with tab2:
         resumen_mes["CV (%)"] = resumen_mes["CV (%)"].round(1)
         resumen_mes["Media viv"] = resumen_mes["Media viv"].round(1)
         st.dataframe(resumen_mes, use_container_width=True, height=280)
-        
+
         # Display load distribution per team and surveyor (New charts)
         if 'equipo' in df.columns and 'encuestador' in df.columns and not df['equipo'].isna().all():
             st.markdown("<div class='section-header'><span>Análisis de carga de trabajo por equipo y encuestador</span><div class='line'></div></div>", unsafe_allow_html=True)
@@ -748,7 +746,7 @@ with tab2:
             # CV for teams
             team_cv = df.groupby('equipo')['viv'].apply(calculate_cv).reset_index(name='CV (%)')
             team_cv = team_cv.sort_values(by='equipo')
-            
+
             st.markdown("**Coeficiente de Variación (CV) de viviendas por Equipo**")
             st.info("Un CV bajo (idealmente <50%) indica una carga de trabajo más equilibrada entre los equipos.")
             st.dataframe(team_cv, use_container_width=True)
@@ -788,7 +786,7 @@ with tab2:
             with col_load2:
                 surveyor_load = df.groupby(['equipo', 'encuestador'])['viv'].sum().reset_index()
                 fig_surveyor_load = px.bar(
-                    surveyor_load, x='encuestador', y='viv', color='equipo',
+                    surveyor_load, x='encuestador', y='viv', color='equipo', 
                     title='Viviendas asignadas por Encuestador (por Equipo)',
                     labels={'encuestador': 'Encuestador', 'viv': 'Total Viviendas', 'equipo': 'Equipo'},
                     template="plotly_dark",
@@ -806,7 +804,6 @@ with tab3:
     <div class='info-box'>
     🔧 &nbsp; Esta sección integrará el algoritmo de clustering con restricción de capacidad
     y la generación de rutas óptimas por red vial real (OSMnx + NetworkX).
-    El módulo está en desarrollo por <b>Franklin López</b>.
     </div>
     """, unsafe_allow_html=True)
 
@@ -836,10 +833,15 @@ with tab3:
 
     st.markdown("**📂 Cargar grafo vial y generar rutas**")
     graphml_file = st.file_uploader("Archivo zonal.graphml", type=["graphml"],
-                                     help="Generado con OSMnx por Franklin. Necesario para rutas reales.", key="graphml_uploader")
+                                     help="Generado con OSMnx. Necesario para rutas reales.", key="graphml_uploader")
 
     if graphml_file:
         st.success("✓ Grafo vial cargado. Ahora puede generar las rutas.")
+
+        # --- New Options for Outliers ---
+        st.markdown("**⚙️ Opciones de Generación**")
+        use_bomberos = st.toggle("Manejar outliers con Equipo Bombero", value=True, help="Si se activa, los puntos extremadamente lejanos se asignan a un equipo especial. Si no, se distribuyen entre todos los equipos.")
+
         if st.button("Generar Rutas", type="primary", use_container_width=True):
             if df is None or len(df) == 0:
                 st.warning("Cargue y procese datos de GeoPackage primero en el panel lateral.")
@@ -847,8 +849,8 @@ with tab3:
                 with st.spinner("Generando rutas y balanceando carga... Esto puede tomar un momento."):
                     try:
                         # Define base coordinates for Guayaquil
-                        base_coords = (-2.1458259, -79.8938396) 
-                        
+                        base_coords = (-2.1458259, -79.8938396)
+
                         # --- Load graph from uploaded file ---
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".graphml") as tmp:
                             tmp.write(graphml_file.read())
@@ -858,15 +860,14 @@ with tab3:
                         os.unlink(tmp_path_graph) # Clean up temp file
                         st.session_state.graph_G = G_active # Store loaded graph in session state
 
-                        st.success(f"Grafo vial cargado (pre-filtrado). Nodos: {len(G_active.nodes)}, Arcos: {len(G_active.edges)}.")
+                        st.success(f"Grafo vial cargado. Nodos: {len(G_active.nodes)}, Arcos: {len(G_active.edges)}.")
 
                         # --- Outlier Detection and Journey Stratification ---
-                        # Ensure df has necessary columns, initialize if not
                         if 'equipo' not in df.columns: df['equipo'] = pd.NA
                         if 'jornada' not in df.columns: df['jornada'] = pd.NA
 
                         transformer_to_utm = Transformer.from_crs("EPSG:4326", "EPSG:32717", always_xy=True)
-                        base_lat_utm, base_lon_utm = base_coords[0], base_coords[1] # Use base_coords for consistency
+                        base_lat_utm, base_lon_utm = base_coords[0], base_coords[1] 
                         base_x, base_y = transformer_to_utm.transform(base_lon_utm, base_lat_utm)
 
                         df['dist_base_utm'] = np.sqrt((df['x'] - base_x)**2 + (df['y'] - base_y)**2)
@@ -877,39 +878,41 @@ with tab3:
                         upper_bound_dist = Q3_dist + 1.5 * IQR_dist
 
                         is_outlier = df['dist_base_utm'] > upper_bound_dist
-                        df.loc[is_outlier, 'equipo'] = 'equipo_bombero'
-                        df.loc[is_outlier, 'jornada'] = 'Jornada Especial'
+                        
+                        # Handling Outliers based on Toggle
+                        if use_bomberos:
+                            df.loc[is_outlier, 'equipo'] = 'equipo_bombero'
+                            df.loc[is_outlier, 'jornada'] = 'Jornada Especial'
+                            df_non_outliers = df[~is_outlier].copy()
+                        else:
+                            df_non_outliers = df.copy() # All points treated as non-outliers for assignment purposes
 
-                        df_non_outliers = df[~is_outlier].copy()
                         if not df_non_outliers.empty:
                             median_dist = df_non_outliers['dist_base_utm'].median()
                             def label_jornada(d):
                                 return 'Jornada 1' if d > median_dist else 'Jornada 2'
-                            df.loc[~is_outlier, 'jornada'] = df_non_outliers['dist_base_utm'].apply(label_jornada)
+                            
+                            if use_bomberos:
+                                df.loc[~is_outlier, 'jornada'] = df_non_outliers['dist_base_utm'].apply(label_jornada)
+                            else:
+                                df['jornada'] = df['dist_base_utm'].apply(label_jornada)
                         else:
-                            st.warning("No hay suficientes puntos no-atípicos para la estratificación por jornada.")
-
-
-                        st.session_state.data_filtered = df.copy() # Update session state
-
-                        st.write("--- Estratificación por Distancia a Base (INEC Guayaquil) ---")
-                        st.write(f"Base UTM: x={base_x:.2f}, y={base_y:.2f}")
-                        st.write(f"Umbral Outliers (IQR): {upper_bound_dist/1000:.2f} km")
-                        st.write(f"Distancia Mediana (No Outliers): {median_dist/1000:.2f} km")
-                        strat_summary = df.groupby(['equipo', 'jornada']).size().reset_index(name='count')
-                        st.dataframe(strat_summary, use_container_width=True)
+                            st.warning("No hay suficientes puntos para la estratificación por jornada.")
 
                         # --- Weighted Workload and Greedy Balancing ---
-                        # Use 'tipo_entidad' to infer rural (sec) vs urban (man)
                         df['weighted_viv'] = df.apply(
                             lambda row: row['viv'] * 1.5 if row['tipo_entidad'].startswith('sec') else row['viv'],
                             axis=1
                         )
 
-                        main_teams_list = [f'Equipo {t["id"]}' for t in st.session_state.team_configs] # Use dynamic team configs
+                        main_teams_list = [f'Equipo {t["id"]}' for t in st.session_state.team_configs]
 
                         for jornada_name in ['Jornada 1', 'Jornada 2']:
-                            mask_balance = (df['jornada'] == jornada_name) & (df['equipo'] != 'equipo_bombero')
+                            if use_bomberos:
+                                mask_balance = (df['jornada'] == jornada_name) & (df['equipo'] != 'equipo_bombero')
+                            else:
+                                mask_balance = (df['jornada'] == jornada_name)
+                            
                             df_subset = df[mask_balance].copy()
 
                             if not df_subset.empty:
@@ -921,253 +924,119 @@ with tab3:
                                     df.loc[idx, 'equipo'] = target_team
                                     current_workloads[target_team] += row['weighted_viv']
 
-                        st.session_state.data_filtered = df.copy() # Update session state again
+                        st.session_state.data_filtered = df.copy() # Update session state
 
-                        st.write("--- Resumen de Balanceo Greedy por Equipo y Jornada ---")
+                        st.write("--- Resumen de Balanceo ---")
                         summary_teams_greedy = df.groupby(['jornada', 'equipo']).agg(
-                            n_puntos=('id_entidad', 'count'), # Use id_entidad for points
+                            n_puntos=('id_entidad', 'count'),
                             carga_ponderada_total=('weighted_viv', 'sum'),
-                            viviendas_reales=('viv', 'sum') # Using 'viv' for real dwellings
+                            viviendas_reales=('viv', 'sum')
                         ).reset_index()
                         st.dataframe(summary_teams_greedy, use_container_width=True)
 
 
                         # --- TSP Optimization and Route Generation ---
-                        if st.session_state.graph_G is None:
-                            st.error("El grafo vial no se ha cargado correctamente.")
-                        else:
-                            G_active = st.session_state.graph_G
-                            # Use base_coords directly here for ox.nearest_nodes
-                            base_node = ox.nearest_nodes(G_active, base_coords[1], base_coords[0]) 
+                        G_active = st.session_state.graph_G
+                        base_node = ox.nearest_nodes(G_active, base_coords[1], base_coords[0])
 
-                            mask_main_tsp = df['equipo'].isin(main_teams_list)
-                            df_active_tsp = df[mask_main_tsp].copy()
+                        # Determine which teams need routes
+                        active_route_teams = main_teams_list.copy()
+                        if use_bomberos:
+                            active_route_teams.append('equipo_bombero')
 
-                            tsp_results = {}
-                            road_paths = {}
+                        mask_active_tsp = df['equipo'].isin(active_route_teams)
+                        df_active_tsp = df[mask_active_tsp].copy()
 
-                            groups_tsp = df_active_tsp.groupby(['equipo', 'jornada'])
+                        tsp_results = {}
+                        road_paths = {}
 
-                            for (team, journey), group_df in groups_tsp:
-                                if len(group_df) == 0:
-                                    continue
+                        groups_tsp = df_active_tsp.groupby(['equipo', 'jornada'])
 
-                                point_nodes_raw = ox.nearest_nodes(G_active, group_df['lon'].values, group_df['lat'].values)
+                        for (team, journey), group_df in groups_tsp:
+                            if len(group_df) == 0: continue
+
+                            point_nodes_raw = ox.nearest_nodes(G_active, group_df['lon'].values, group_df['lat'].values)
+                            base_component = nx.node_connected_component(G_active.to_undirected(), base_node)
+                            reachable_point_nodes = [node for node in point_nodes_raw if node in base_component]
+
+                            if not reachable_point_nodes: continue
+
+                            unique_nodes_for_tsp = [base_node] + list(dict.fromkeys(reachable_point_nodes))
+                            num_nodes = len(unique_nodes_for_tsp)
+                            if num_nodes <= 1: continue
+
+                            dist_matrix = np.zeros((num_nodes, num_nodes))
+                            for i in range(num_nodes):
+                                for j in range(i + 1, num_nodes):
+                                    u_node, v_node = unique_nodes_for_tsp[i], unique_nodes_for_tsp[j]
+                                    try:
+                                        d = nx.shortest_path_length(G_active, u_node, v_node, weight='length')
+                                        dist_matrix[i, j] = dist_matrix[j, i] = d
+                                    except: dist_matrix[i, j] = dist_matrix[j, i] = 1e9
+
+                            tsp_g = nx.Graph()
+                            for i in range(num_nodes):
+                                for j in range(i + 1, num_nodes):
+                                    if dist_matrix[i,j] != 1e9: tsp_g.add_edge(i, j, weight=dist_matrix[i, j])
+
+                            if not nx.is_connected(tsp_g): continue
+
+                            try:
+                                cycle_indices_raw = approximation.traveling_salesman_problem(tsp_g, weight='weight', cycle=True)
+                                path_segment_indices = cycle_indices_raw[:-1]
+                                total_dist = 0
+                                full_route_coords = []
+                                optimal_node_sequence = [unique_nodes_for_tsp[idx] for idx in path_segment_indices]
+                                full_cycle_indices = path_segment_indices + [path_segment_indices[0]]
+
+                                for k in range(len(full_cycle_indices) - 1):
+                                    u_node, v_node = unique_nodes_for_tsp[full_cycle_indices[k]], unique_nodes_for_tsp[full_cycle_indices[k+1]]
+                                    total_dist += dist_matrix[full_cycle_indices[k], full_cycle_indices[k+1]]
+                                    path_nodes = nx.shortest_path(G_active, u_node, v_node, weight='length')
+                                    segment_coords = [(G_active.nodes[n]['y'], G_active.nodes[n]['x']) for n in path_nodes[:-1]]
+                                    full_route_coords.extend(segment_coords)
                                 
-                                # Filter point_nodes to include only those reachable from base_node's component
-                                # First, find the connected component of base_node using an undirected view
-                                base_component = None
-                                try:
-                                    base_component = nx.node_connected_component(G_active.to_undirected(), base_node)
-                                except nx.NetworkXError: # If base_node is not in G_active
-                                    st.warning(f"Base node {base_node} is not in the active graph for {team}-{journey}. Skipping TSP.")
-                                    tsp_results[f"{team}_{journey}"] = {'node_sequence': [], 'total_distance_m': 0}
-                                    road_paths[f"{team}_{journey}"] = []
-                                    continue
+                                last_node = unique_nodes_for_tsp[full_cycle_indices[-1]]
+                                full_route_coords.append((G_active.nodes[last_node]['y'], G_active.nodes[last_node]['x']))
 
-                                reachable_point_nodes = [node for node in point_nodes_raw if node in base_component]
-                                
-                                # If after filtering, no points are left (or only the base point)
-                                if not reachable_point_nodes:
-                                    st.warning(f"No reachable points for {team}-{journey} from base node. Skipping TSP.")
-                                    tsp_results[f"{team}_{journey}"] = {'node_sequence': [], 'total_distance_m': 0}
-                                    road_paths[f"{team}_{journey}"] = []
-                                    continue
-                                
-                                # Re-create unique_nodes ensuring base_node is first and all others are reachable
-                                unique_nodes_for_tsp = [base_node] + list(dict.fromkeys(reachable_point_nodes))
-                                num_nodes = len(unique_nodes_for_tsp)
+                                tsp_results[f"{team}_{journey}"] = {'node_sequence': optimal_node_sequence, 'total_distance_m': total_dist}
+                                road_paths[f"{team}_{journey}"] = full_route_coords
 
-                                if num_nodes <= 1: # Not enough points for TSP after filtering
-                                    tsp_results[f"{team}_{journey}"] = {'node_sequence': [], 'total_distance_m': 0}
-                                    road_paths[f"{team}_{journey}"] = []
-                                    continue
+                            except Exception as e: st.error(f"Error TSP: {e}")
 
-                                dist_matrix = np.zeros((num_nodes, num_nodes))
-                                for i in range(num_nodes):
-                                    for j in range(i + 1, num_nodes):
-                                        u_node = unique_nodes_for_tsp[i]
-                                        v_node = unique_nodes_for_tsp[j]
-                                        try:
-                                            d = nx.shortest_path_length(G_active, u_node, v_node, weight='length')
-                                            dist_matrix[i, j] = d
-                                            dist_matrix[j, i] = d
-                                        except nx.NetworkXNoPath:
-                                            dist_matrix[i, j] = 1e9 # High cost for no path
-                                            dist_matrix[j, i] = 1e9
+                        st.session_state.tsp_results = tsp_results
+                        st.session_state.road_paths = road_paths
 
-                                tsp_g = nx.Graph() # Create a new graph for TSP approximation
-                                for i in range(num_nodes):
-                                    for j in range(i + 1, num_nodes):
-                                        if dist_matrix[i,j] != 1e9: # Only add edges where a path exists and is not 'infinite'
-                                            tsp_g.add_edge(i, j, weight=dist_matrix[i, j])
-                                            
-                                # Ensure tsp_g is connected for approximation.traveling_salesman_problem
-                                if not nx.is_connected(tsp_g):
-                                    st.warning(f"TSP graph for {team}-{journey} is disconnected. A single tour is not possible. Displaying individual point-to-point connections if available.")
-                                    tsp_results[f"{team}_{journey}"] = {'node_sequence': [], 'total_distance_m': 0}
-                                    road_paths[f"{team}_{journey}"] = []
-                                    continue
+                        # --- Visualization ---
+                        m_final = folium.Map(location=[base_coords[0], base_coords[1]], zoom_start=8, tiles='OpenStreetMap')
+                        team_colors_map = {'equipo_bombero': 'purple'}
+                        for i, tid in enumerate(sorted([t['id'] for t in st.session_state.team_configs])):
+                            team_colors_map[f'Equipo {tid}'] = px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)]
 
-                                if len(tsp_g.nodes) < 2: # Check again after potential filtering
-                                    tsp_results[f"{team}_{journey}"] = {'node_sequence': [], 'total_distance_m': 0}
-                                    road_paths[f"{team}_{journey}"] = []
-                                    continue
+                        fg_dict = {}
+                        folium.Marker([base_coords[0], base_coords[1]], popup='Base Guayaquil', icon=folium.Icon(color='black', icon='home')).add_to(m_final)
 
-                                try:
-                                    cycle_indices_raw = approximation.traveling_salesman_problem(tsp_g, weight='weight', cycle=True)
-                                    
-                                    if cycle_indices_raw is None or not cycle_indices_raw: 
-                                        raise ValueError("TSP approximation returned an empty or invalid cycle.")
+                        for idx, row in df.iterrows():
+                            team, jornada = row['equipo'], row['jornada']
+                            fg_key = f"{team} - {jornada}"
+                            if fg_key not in fg_dict:
+                                fg_dict[fg_key] = folium.FeatureGroup(name=fg_key).add_to(m_final)
+                            folium.CircleMarker(
+                                location=[row['lat'], row['lon']], radius=5, color=team_colors_map.get(team, 'gray'),
+                                fill=True, fill_color=team_colors_map.get(team, 'gray'), fill_opacity=0.7,
+                                popup=f"Equipo: {team}<br>Jornada: {jornada}"
+                            ).add_to(fg_dict[fg_key])
 
-                                    # Ensure the cycle starts and ends at the base_node (which is index 0 in unique_nodes_for_tsp and tsp_g.nodes)
-                                    if cycle_indices_raw[0] != 0: # If it doesn't start at base node
-                                        try:
-                                            idx_zero = cycle_indices_raw.index(0)
-                                            # Reorder the cycle to start with the base node (index 0)
-                                            cycle_indices_reordered = cycle_indices_raw[idx_zero:] + cycle_indices_raw[1:idx_zero] + [0]
-                                        except ValueError:
-                                            st.warning(f"Base node not found in TSP cycle for {team}-{journey}. Reordering attempt failed.")
-                                            cycle_indices_reordered = cycle_indices_raw
-                                    else:
-                                        cycle_indices_reordered = cycle_indices_raw
-                                    
-                                    # Remove duplicate last node for path reconstruction if it's already a cycle
-                                    if len(cycle_indices_reordered) > 1 and cycle_indices_reordered[0] == cycle_indices_reordered[-1]:
-                                        path_segment_indices = cycle_indices_reordered[:-1] 
-                                    else:
-                                        path_segment_indices = cycle_indices_reordered # If not a cycle, use as-is
-                                    
-                                    # Calculate total distance and reconstruct paths
-                                    total_dist = 0
-                                    full_route_coords = []
-                                    optimal_node_sequence = [unique_nodes_for_tsp[idx] for idx in path_segment_indices]
-                                    
-                                    # Add base node at the end to close the tour for distance calculation
-                                    full_cycle_indices = path_segment_indices + [path_segment_indices[0]]
+                        for key, coords in road_paths.items():
+                            display_key = key.replace('_', ' - ')
+                            if display_key in fg_dict:
+                                team_name = key.split('_')[0]
+                                folium.PolyLine(locations=coords, weight=3, color=team_colors_map.get(team_name, 'gray'), opacity=0.8).add_to(fg_dict[display_key])
 
-                                    for k in range(len(full_cycle_indices) - 1):
-                                        u_idx = full_cycle_indices[k]
-                                        v_idx = full_cycle_indices[k+1]
-                                        
-                                        if dist_matrix[u_idx, v_idx] != 1e9: # Check if path exists
-                                            total_dist += dist_matrix[u_idx, v_idx]
-                                            u_node = unique_nodes_for_tsp[u_idx]
-                                            v_node = unique_nodes_for_tsp[v_idx]
-                                            try:
-                                                path_nodes = nx.shortest_path(G_active, u_node, v_node, weight='length')
-                                                segment_coords = [(G_active.nodes[n]['y'], G_active.nodes[n]['x']) for n in path_nodes[:-1]]
-                                                full_route_coords.extend(segment_coords)
-                                            except nx.NetworkXNoPath:
-                                                st.warning(f"Unexpected: No path found between {u_node} and {v_node} for {team}-{journey} (dist_matrix indicated path). Skipping segment.")
-                                        else:
-                                            st.warning(f"No path found in dist_matrix between {unique_nodes_for_tsp[u_idx]} and {unique_nodes_for_tsp[v_idx]} for {team}-{journey}. Skipping segment in route drawing.")
-                                            # This segment is unreachable, so we don't add to distance or route coords
-                                            
-                                    # Add the last point's coordinates to complete the route visually
-                                    if full_cycle_indices:
-                                        last_node_in_cycle = unique_nodes_for_tsp[full_cycle_indices[-1]]
-                                        full_route_coords.append((G_active.nodes[last_node_in_cycle]['y'], G_active.nodes[last_node_in_cycle]['x']))
+                        folium.LayerControl(collapsed=False).add_to(m_final)
+                        st_folium(m_final, width=None, height=520)
 
-                                    tsp_results[f"{team}_{journey}"] = {
-                                        'node_sequence': optimal_node_sequence,
-                                        'total_distance_m': total_dist
-                                    }
-                                    road_paths[f"{team}_{journey}"] = full_route_coords
-
-                                except Exception as e:
-                                    st.error(f"Error solving TSP for {team}-{journey}: {e}")
-                                    tsp_results[f"{team}_{journey}"] = {'node_sequence': [], 'total_distance_m': 0}
-                                    road_paths[f"{team}_{journey}"] = []
-
-
-                            st.session_state.tsp_results = tsp_results
-                            st.session_state.road_paths = road_paths
-
-                            st.write("--- Rutas TSP Generadas ---")
-                            for key, res in tsp_results.items():
-                                st.write(f"- {key}: {res['total_distance_m']/1000:.2f} km")
-
-                            # --- Folium Map Visualization ---
-                            st.markdown("<h3>Mapa de Rutas Optimizadas</h3>", unsafe_allow_html=True)
-
-                            m_final = folium.Map(location=[base_coords[0], base_coords[1]], zoom_start=8, tiles='OpenStreetMap')
-
-                            team_colors_map = {'equipo_bombero': 'purple'} # Keep special team color
-                            unique_team_ids = sorted([t['id'] for t in st.session_state.team_configs])
-                            for i, team_id in enumerate(unique_team_ids):
-                                team_colors_map[f'Equipo {team_id}'] = px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)]
-
-                            fg_dict = {}
-                            folium.Marker([base_coords[0], base_coords[1]], popup='Base Guayaquil', icon=folium.Icon(color='black', icon='home')).add_to(m_final)
-
-                            for idx, row in df.iterrows(): # Use df with updated team/jornada
-                                team = row['equipo']
-                                jornada = row['jornada']
-                                fg_key = f"{team} - {jornada}"
-
-                                if fg_key not in fg_dict:
-                                    fg_dict[fg_key] = folium.FeatureGroup(name=fg_key)
-                                    fg_dict[fg_key].add_to(m_final)
-
-                                folium.CircleMarker(
-                                    location=[row['lat'], row['lon']], # Use lat, lon from df
-                                    radius=5,
-                                    color=team_colors_map.get(team, 'gray'), # Outline color
-                                    fill=True,
-                                    fill_color=team_colors_map.get(team, 'gray'), # Fill color consistent with team
-                                    fill_opacity=0.7,
-                                    popup=f"ID: {row['id_entidad']}<br>UPM: {row['upm']}<br>Viv: {int(row['viv'])}<br>Equipo: {team}<br>Jornada: {jornada}", # Use correct df columns
-                                    tooltip=f"{team} | {jornada} | {int(row['viv'])} viv"
-                                ).add_to(fg_dict[fg_key])
-
-                            for key, coords in road_paths.items():
-                                display_key = key.replace('_', ' - ')
-                                if display_key in fg_dict:
-                                    team_name = key.split('_')[0]
-                                    folium.PolyLine(
-                                        locations=coords,
-                                        weight=3,
-                                        color=team_colors_map.get(team_name, 'gray'),
-                                        opacity=0.8,
-                                        tooltip=f"Ruta: {display_key}"
-                                    ).add_to(fg_dict[display_key])
-
-                            folium.LayerControl(collapsed=False).add_to(m_final)
-                            st_folium(m_final, width=None, height=520)
-
-                            # --- Consolidate Logistics Report ---
-                            st.markdown("<h3>Reporte Logístico y de Equidad</h3>", unsafe_allow_html=True)
-                            distances_data = []
-                            for key, result in tsp_results.items():
-                                if result['node_sequence']: # Only if TSP was successful
-                                    team, jornada = key.split('_')
-                                    distances_data.append({'equipo': team, 'jornada': jornada, 'Distancia (km)': round(result['total_distance_m']/1000, 2)})
-
-                            df_dist_report = pd.DataFrame(distances_data)
-                            report_agg = df.groupby(['equipo', 'jornada']).agg(
-                                UPMs=('id_entidad', 'count'), # Use id_entidad for UPMs count
-                                Viviendas=('viv', 'sum'),
-                                Carga_Ponderada=('weighted_viv', 'sum')
-                            ).reset_index()
-
-                            final_report = pd.merge(report_agg, df_dist_report, on=['equipo', 'jornada'], how='left').fillna(0)
-                            final_report['Distancia (km)'] = final_report['Distancia (km)'].round(2)
-
-                            total_row = pd.DataFrame([{
-                                'equipo': 'TOTAL',
-                                'jornada': '-',
-                                'UPMs': final_report['UPMs'].sum(),
-                                'Viviendas': final_report['Viviendas'].sum(),
-                                'Carga_Ponderada': final_report['Carga_Ponderada'].sum(),
-                                'Distancia (km)': final_report['Distancia (km)'].sum()
-                            }])
-
-                            st.dataframe(pd.concat([final_report, total_row], ignore_index=True), use_container_width=True)
-
-                    except Exception as e:
-                        st.error(f"Error durante la generación de rutas: {e}")
-                        st.exception(e) # Display full traceback for debugging
+                    except Exception as e: st.error(f"Error final: {e}")
     else:
         st.markdown("""
         <div class='coming-soon' style='padding:24px'>
@@ -1183,43 +1052,13 @@ with tab3:
 with tab4:
     st.markdown("""
     <div class='info-box'>
-    📋 &nbsp; Una vez generadas las rutas, esta sección permitirá exportar el programa mensual
-    en formato Excel: equipo, encuestador, día, UPM asignada, viviendas estimadas y distancia al siguiente punto.
-    También incluirá el resumen estadístico de CV de carga y comparación entre jornadas.
+    📋 &nbsp; Una vez generadas las rutas, esta sección permitirá exportar el programa mensual.
     </div>
     """, unsafe_allow_html=True)
-
-    col_rep1, col_rep2, col_rep3 = st.columns(3)
-    with col_rep1:
-        st.markdown("""<div class='coming-soon'>
-            <div class='icon'>📅</div>
-            <div class='title'>Programa mensual</div>
-            <div class='desc'>Asignación día a día por equipo y encuestador para las dos rondas de 12 días.</div>
-        </div>""", unsafe_allow_html=True)
-    with col_rep2:
-        st.markdown("""<div class='coming-soon'>
-            <div class='icon'>📈</div>
-            <div class='title'>Resumen estadístico</div>
-            <div class='desc'>CV de carga, distancia total por equipo, balance entre jornadas.</div>
-        </div>""", unsafe_allow_html=True)
-    with col_rep3:
-        st.markdown("""<div class='coming-soon'>
-            <div class='icon'>⬇️</div>
-            <div class='title'>Exportar Excel</div>
-            <div class='desc'>Reporte descargable listo para entregar a los equipos de campo.</div>
-        </div>""", unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("**Vista previa de estructura del reporte:**")
     preview = pd.DataFrame({
-        "Equipo": ["Equipo 1"]*3 + ["Equipo 2"]*3,
-        "Encuestador": ["Enc. A","Enc. B","Enc. C"]*2,
-        "Jornada": [1]*3 + [1]*3,
-        "Día": [1,1,1,1,1,1],
-        "UPM": ["—"]*6,
-        "id_entidad": ["—"]*6,
-        "Viviendas est.": ["—"]*6,
-        "Dist. siguiente (km)": ["—"]*6
+        "Equipo": ["Equipo 1"]*3,
+        "Encuestador": ["Enc. A","Enc. B","Enc. C"],
+        "UPM": ["—"]*3,
+        "Viviendas est.": ["—"]*3
     })
     st.dataframe(preview, use_container_width=True, height=200)
-    st.caption("Esta estructura se completará automáticamente al generar las rutas desde la pestaña anterior.")
