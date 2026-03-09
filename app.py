@@ -811,6 +811,9 @@ with tab3:
             else:
                 with st.spinner("Generando rutas y balanceando carga... Esto puede tomar un momento."):
                     try:
+                        # Define base coordinates for Guayaquil
+                        base_coords = (-2.1458259, -79.8938396) 
+                        
                         # --- Load and filter graph --- 
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".graphml") as tmp:
                             tmp.write(graphml_file.read())
@@ -843,8 +846,8 @@ with tab3:
                         if 'jornada' not in df.columns: df['jornada'] = pd.NA
 
                         transformer_to_utm = Transformer.from_crs("EPSG:4326", "EPSG:32717", always_xy=True)
-                        base_lat, base_lon = -2.1458259, -79.8938396 # INEC Guayaquil Base
-                        base_x, base_y = transformer_to_utm.transform(base_lon, base_lat)
+                        base_lat_utm, base_lon_utm = base_coords[0], base_coords[1] # Use base_coords for consistency
+                        base_x, base_y = transformer_to_utm.transform(base_lon_utm, base_lat_utm)
 
                         df['dist_base_utm'] = np.sqrt((df['x'] - base_x)**2 + (df['y'] - base_y)**2)
 
@@ -914,7 +917,8 @@ with tab3:
                             st.error("El grafo vial no se ha cargado correctamente.")
                         else:
                             G_active = st.session_state.graph_G
-                            base_node = ox.nearest_nodes(G_active, base_coords[1], base_coords[0]) # Use base_lon, base_lat
+                            # Use base_coords directly here for ox.nearest_nodes
+                            base_node = ox.nearest_nodes(G_active, base_coords[1], base_coords[0]) 
 
                             mask_main_tsp = df['equipo'].isin(main_teams_list)
                             df_active_tsp = df[mask_main_tsp].copy()
@@ -1007,7 +1011,7 @@ with tab3:
                             # --- Folium Map Visualization ---
                             st.markdown("<h3>Mapa de Rutas Optimizadas</h3>", unsafe_allow_html=True)
 
-                            m_final = folium.Map(location=[base_lat, base_lon], zoom_start=8, tiles='OpenStreetMap')
+                            m_final = folium.Map(location=[base_coords[0], base_coords[1]], zoom_start=8, tiles='OpenStreetMap')
 
                             team_colors_map = {
                                 'Equipo 1': 'blue',
@@ -1022,7 +1026,7 @@ with tab3:
                                     team_colors_map[team_name] = px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)]
 
                             fg_dict = {}
-                            folium.Marker([base_lat, base_lon], popup='Base Guayaquil', icon=folium.Icon(color='black', icon='home')).add_to(m_final)
+                            folium.Marker([base_coords[0], base_coords[1]], popup='Base Guayaquil', icon=folium.Icon(color='black', icon='home')).add_to(m_final)
 
                             for idx, row in df.iterrows(): # Use df with updated team/jornada
                                 team = row['equipo']
