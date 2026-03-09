@@ -920,10 +920,10 @@ with tab3:
                                 point_nodes_raw = ox.nearest_nodes(G_active, group_df['lon'].values, group_df['lat'].values)
                                 
                                 # Filter point_nodes to include only those reachable from base_node's component
-                                # First, find the connected component of base_node
+                                # First, find the connected component of base_node using an undirected view
                                 base_component = None
                                 try:
-                                    base_component = nx.node_connected_component(G_active, base_node)
+                                    base_component = nx.node_connected_component(G_active.to_undirected(), base_node)
                                 except nx.NetworkXError: # If base_node is not in G_active
                                     st.warning(f"Base node {base_node} is not in the active graph for {team}-{journey}. Skipping TSP.")
                                     tsp_results[f"{team}_{journey}"] = {'node_sequence': [], 'total_distance_m': 0}
@@ -1118,7 +1118,7 @@ with tab3:
 
                             df_dist_report = pd.DataFrame(distances_data)
                             report_agg = df.groupby(['equipo', 'jornada']).agg(
-                                UPMs=('id_entidad', 'nunique'), # Use id_entidad for UPMs count
+                                UPMs=('id_entidad', 'count'), # Use id_entidad for UPMs count
                                 Viviendas=('viv', 'sum'),
                                 Carga_Ponderada=('weighted_viv', 'sum')
                             ).reset_index()
