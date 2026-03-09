@@ -219,7 +219,7 @@ html, body, [class*="css"] {
 #  FUNCIÓN PRINCIPAL (la tuya)
 # ─────────────────────────────────────────────
 def muestra_coordenada(archivo_gpkg, dissolve_by_upm=False):
-    capas = fiona.listlayers(archivo_gpkg)
+    capas = gpd.io.file.fiona.listlayers(archivo_gpkg)
     man = gpd.read_file(archivo_gpkg, layer=capas[0])
     disp = gpd.read_file(archivo_gpkg, layer=capas[1])
 
