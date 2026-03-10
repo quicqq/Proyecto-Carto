@@ -172,9 +172,10 @@ def cargar_gpkg(path, dissolve_upm=True):
 
 def asignar_encuestadores_y_dias(df_grp, n_enc, dias_tot, viv_min, viv_max, inicio_dia=1):
     """
-    Asignación greedy + distribución en días operativos.
-    Retorna df_grp con columnas 'encuestador' y 'dia_operativo'.
+    Asignación greedy + distribución HORIZONTAL en días operativos.
+    Mantiene la firma original para compatibilidad con el resto del código.
     """
+    # 1. Reparto equitativo entre encuestadores (Balance de carga total)
     df_g = df_grp.sort_values('carga_pond', ascending=False).copy()
     cargas = np.zeros(n_enc)
     enc_asig = []
@@ -184,21 +185,42 @@ def asignar_encuestadores_y_dias(df_grp, n_enc, dias_tot, viv_min, viv_max, inic
         cargas[em] += row['carga_pond']
     df_g['encuestador'] = enc_asig
 
-    # Distribuimos en días: acumulamos viv_y reales hasta llegar a viv_max
+    # 2. Distribución Horizontal por Días
     dias_col = [0]*len(df_g)
-    for enc_id in range(1, n_enc+1):
-        idx_enc = df_g[df_g['encuestador']==enc_id].index.tolist()
-        viv_acum = 0
-        dia = inicio_dia
-        for pos, idx in enumerate(idx_enc):
+    for enc_id in range(1, n_enc + 1):
+        # Filtramos las manzanas asignadas a este encuestador específico
+        mask_enc = df_g['encuestador'] == enc_id
+        idx_enc = df_g[mask_enc].index.tolist()
+        
+        if not idx_enc: continue
+
+        # Calculamos la meta diaria promedio para este encuestador específico
+        total_viv_enc = df_g.loc[idx_enc, 'viv'].sum()
+        meta_diaria = max(viv_min, total_viv_enc / dias_tot)
+
+        viv_acum_dia = 0
+        dia_actual = inicio_dia
+        
+        for idx in idx_enc:
             loc = df_g.index.get_loc(idx)
-            viv_acum += df_g.iloc[loc]['viv']
-            dias_col[loc] = dia
-            if viv_acum >= viv_max and dia < inicio_dia + dias_tot - 1:
-                dia += 1; viv_acum = 0
+            viv_manzana = df_g.iloc[loc]['viv']
+            
+            # Asignamos al día actual
+            dias_col[loc] = dia_actual
+            viv_acum_dia += viv_manzana
+
+            # Si alcanzamos la meta diaria (sin exceder viv_max) 
+            # y aún quedan días, pasamos al siguiente día
+            if viv_acum_dia >= meta_diaria and dia_actual < inicio_dia + dias_tot - 1:
+                dia_actual += 1
+                viv_acum_dia = 0
+            # Seguridad: si una sola manzana es gigante, forzamos salto para no saturar
+            elif viv_acum_dia >= viv_max and dia_actual < inicio_dia + dias_tot - 1:
+                dia_actual += 1
+                viv_acum_dia = 0
+
     df_g['dia_operativo'] = dias_col
     return df_g
-
 
 
 
