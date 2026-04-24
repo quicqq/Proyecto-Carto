@@ -1652,22 +1652,24 @@ with tab_mapa:
         st_folium(m, width=None, height=560, returned_objects=[],
                   key="mapa_v5_2")
 # ══ TAB 2 — ANÁLISIS ══════════════════════════
-# ══ TAB 2 — ANÁLISIS (v5.2) ══════════════════
+# ══ TAB 2 — ANÁLISIS (v5.2.1 — cargas acumulativas) ════════════════
 # REEMPLAZA EL BLOQUE DESDE "# ══ TAB 2 — ANÁLISIS ══" HASTA JUSTO ANTES DE
-# "# ══════════...  TAB 3 — EDICIÓN MANUAL" EN TU app_v5_1.py
+# "# ══════════... TAB 3 — EDICIÓN MANUAL" EN tu app.
+#
+# REQUIERE que hayas reemplazado también las funciones helper con las del
+# archivo cargas_v2.py (calcular_cargas_trabajo + detectar_violaciones_reglas).
 with tab_analisis:
     st.markdown("<div class='stitle'>Análisis de Carga — "
                 "Estadísticos Descriptivos</div>",
                 unsafe_allow_html=True)
 
-    # ── FILTRO GLOBAL DE JORNADA (v5.2) ──────────────────────────────────────
+    # ── FILTRO GLOBAL DE JORNADA ─────────────────────────────────────────────
     fg1, fg2, fg3 = st.columns([2, 2, 3])
     with fg1:
         jornada_ana = st.radio(
             "Jornada a analizar",
             ["Ambas", "Jornada 1", "Jornada 2"],
-            index=0,
-            horizontal=True,
+            index=0, horizontal=True,
             key="jor_analisis_radio",
             help="Este filtro afecta TODOS los gráficos y tablas de esta "
                  "pestaña. El Equipo Bombero se analiza aparte al final."
@@ -1675,10 +1677,8 @@ with tab_analisis:
     with fg2:
         incluir_bombero = st.checkbox(
             "Incluir Equipo Bombero en gráficos",
-            value=False,
-            key="chk_bomb_analisis",
-            help="Por defecto el Equipo Bombero se analiza aparte porque "
-                 "su lógica (outliers) distorsiona las métricas de equidad."
+            value=False, key="chk_bomb_analisis",
+            help="Por defecto el Equipo Bombero se analiza aparte."
         )
     with fg3:
         st.markdown(
@@ -1689,7 +1689,7 @@ with tab_analisis:
             unsafe_allow_html=True
         )
 
-    # ── df_ana: dataframe filtrado que se usa en TODA la pestaña ─────────────
+    # ── df_ana ───────────────────────────────────────────────────────────────
     df_ana = df_plan.copy()
     df_ana = df_ana[df_ana['equipo'] != 'sin_asignar']
     if not incluir_bombero:
@@ -1703,7 +1703,7 @@ with tab_analisis:
         st.warning("No hay datos con el filtro actual.")
         st.stop()
 
-    # ── (A) ESTADÍSTICAS DESCRIPTIVAS GENERALES ─────────────────────────────
+    # ── (A) ESTADÍSTICAS DESCRIPTIVAS ────────────────────────────────────────
     st.markdown("<div class='stitle'>Resumen general (filtro aplicado)</div>",
                 unsafe_allow_html=True)
 
@@ -1738,8 +1738,8 @@ with tab_analisis:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── (B) DIAGNÓSTICO DEL REBALANCEO (en expander) ─────────────────────────
-    with st.expander("🔬 Diagnóstico del rebalanceo de clusters (KMeans)",
+    # ── (B) DIAGNÓSTICO REBALANCEO ───────────────────────────────────────────
+    with st.expander("🔬 Diagnóstico del rebalanceo de clusters",
                       expanded=False):
         cv_ini = st.session_state.get("cv_ini_bal")
         cv_fin = st.session_state.get("cv_fin_bal")
@@ -1750,24 +1750,14 @@ with tab_analisis:
         if cv_ini is not None and cv_fin is not None:
             mejora = cv_ini - cv_fin
             cc_m = "#059669" if mejora > 5 else ("#d97706" if mejora > 0 else "#dc2626")
-            modo_fin = next(
-                (l.get('modo', '') for l in reversed(bal_log)
-                 if 'objetivo' in l.get('modo', '') or 'plateau' in l.get('modo', '')
-                 or 'sin mejora' in l.get('modo', '')),
-                '-'
-            )
             st.markdown(f"""
             <div class='balance-box'>
-            <b>CV inicial (KMeans puro):</b>
+            <b>CV inicial:</b>
             <span style='color:#e74c3c;font-family:monospace'>{cv_ini:.1f}%</span>
             &nbsp;→&nbsp;
-            <b>CV final (rebalanceo):</b>
+            <b>CV final:</b>
             <span style='color:#27ae60;font-family:monospace'>{cv_fin:.1f}%</span>
-            &nbsp;&nbsp;<b style='color:{cc_m}'>Δ {mejora:.1f} pp</b><br>
-            <span style='font-size:11px'>
-            Parada: <i>{modo_fin}</i> · Iteraciones:
-            {len([l for l in bal_log if l.get('modo') not in ['inicial','final']])}
-            </span>
+            &nbsp;&nbsp;<b style='color:{cc_m}'>Δ {mejora:.1f} pp</b>
             </div>""", unsafe_allow_html=True)
 
         if viv_ant and viv_dep:
@@ -1775,17 +1765,13 @@ with tab_analisis:
             df_comp = pd.DataFrame({
                 'Cluster': [f"C{c}" for c in range(n_cl)] * 2,
                 'Carga pond.': list(viv_ant.values()) + list(viv_dep.values()),
-                'Fase': ['Antes (KMeans)'] * n_cl +
-                        ['Después (rebalanceo)'] * n_cl
+                'Fase': ['Antes'] * n_cl + ['Después'] * n_cl
             })
-            fig_comp = px.bar(
-                df_comp, x='Cluster', y='Carga pond.', color='Fase',
-                barmode='group',
-                title='Carga por cluster — antes vs después',
-                template='plotly_white',
-                color_discrete_map={'Antes (KMeans)': '#e74c3c',
-                                     'Después (rebalanceo)': '#27ae60'}
-            )
+            fig_comp = px.bar(df_comp, x='Cluster', y='Carga pond.',
+                              color='Fase', barmode='group',
+                              template='plotly_white',
+                              color_discrete_map={'Antes': '#e74c3c',
+                                                    'Después': '#27ae60'})
             fig_comp.update_layout(paper_bgcolor="#ffffff",
                                     plot_bgcolor="#fafbfc",
                                     title_font_size=12)
@@ -1812,39 +1798,24 @@ with tab_analisis:
     st.dataframe(res_eq, use_container_width=True, hide_index=True)
 
     # CV entre equipos
-    if jornada_ana in ("Jornada 1", "Jornada 2"):
-        sub_cv = res_eq[res_eq['jornada'] == jornada_ana]
+    jornadas_a_revisar = ([jornada_ana] if jornada_ana != "Ambas"
+                           else ["Jornada 1", "Jornada 2"])
+    for jnm in jornadas_a_revisar:
+        sub_cv = res_eq[res_eq['jornada'] == jnm]
         if len(sub_cv) >= 2:
             cv_v = cv_pct(sub_cv['Viviendas'])
             cv_c = cv_pct(sub_cv['CargaPond'])
             cc_v = "#059669" if cv_v < 20 else ("#d97706" if cv_v < 40 else "#dc2626")
             cc_c = "#059669" if cv_c < 20 else ("#d97706" if cv_c < 40 else "#dc2626")
             st.markdown(
-                f"<div class='ibox'><b>Equidad entre equipos ({jornada_ana})</b> · "
+                f"<div class='ibox'><b>{jnm}</b> · "
                 f"CV viv: <span style='color:{cc_v};font-weight:600;"
                 f"font-family:monospace'>{cv_v:.1f}%</span> · "
                 f"CV carga pond.: <span style='color:{cc_c};font-weight:600;"
                 f"font-family:monospace'>{cv_c:.1f}%</span></div>",
                 unsafe_allow_html=True
             )
-    elif jornada_ana == "Ambas":
-        for jnm in ("Jornada 1", "Jornada 2"):
-            sub_cv = res_eq[res_eq['jornada'] == jnm]
-            if len(sub_cv) >= 2:
-                cv_v = cv_pct(sub_cv['Viviendas'])
-                cv_c = cv_pct(sub_cv['CargaPond'])
-                cc_v = "#059669" if cv_v < 20 else ("#d97706" if cv_v < 40 else "#dc2626")
-                cc_c = "#059669" if cv_c < 20 else ("#d97706" if cv_c < 40 else "#dc2626")
-                st.markdown(
-                    f"<div class='ibox'><b>{jnm}</b> · "
-                    f"CV viv: <span style='color:{cc_v};font-weight:600;"
-                    f"font-family:monospace'>{cv_v:.1f}%</span> · "
-                    f"CV carga pond.: <span style='color:{cc_c};font-weight:600;"
-                    f"font-family:monospace'>{cv_c:.1f}%</span></div>",
-                    unsafe_allow_html=True
-                )
 
-    # Gráfico Viviendas por equipo
     fig_eq = px.bar(
         res_eq, x='equipo', y='Viviendas',
         color='jornada' if jornada_ana == "Ambas" else 'equipo',
@@ -1856,26 +1827,37 @@ with tab_analisis:
     )
     fig_eq.update_traces(textposition='outside', textfont_size=10)
     fig_eq.update_layout(paper_bgcolor="#ffffff", plot_bgcolor="#fafbfc",
-                         title_font_size=13, showlegend=True)
+                         title_font_size=13)
     st.plotly_chart(fig_eq, use_container_width=True)
 
-    # ── (D) CARGA POR ENCUESTADOR ────────────────────────────────────────────
-    st.markdown("<div class='stitle'>Carga por encuestador</div>",
+    # ── (D) CARGA POR ENCUESTADOR (v5.2.1 — lógica acumulativa) ──────────────
+    st.markdown("<div class='stitle'>Carga de trabajo por encuestador</div>",
                 unsafe_allow_html=True)
+
+    st.markdown("""<div class='ibox' style='font-size:12px'>
+    <b>Cómo se calculan las cargas:</b><br>
+    • Las viviendas de <b>manzanas urbanas se acumulan</b>: cada 120 viv = 1 carga urbana
+      (ej. 10 manzanas × 30 viv = 300 viv → 2.5 cargas urbanas).<br>
+    • Cada <b>sector disperso</b> suma <b>+1 carga fija</b>, sin importar sus viviendas.<br>
+    • <b>Total por encuestador = cargas urbanas + nº de sectores dispersos.</b><br>
+    • Máximo permitido: <b>5 cargas por encuestador</b>.
+    </div>""", unsafe_allow_html=True)
 
     MAX_CARGAS_ENC = 5
     MAX_VIV_CARGA  = 120
 
     cargas_df = calcular_cargas_trabajo(df_ana, max_viv_por_carga=MAX_VIV_CARGA)
+
+    # Vista amigable
     cargas_show = cargas_df.rename(columns={
         'equipo': 'Equipo', 'jornada': 'Jornada', 'encuestador': 'Enc',
         'n_upms': 'UPMs', 'n_manzanas': 'Mz', 'n_sectores': 'SecDisp',
-        'viv': 'Viv.', 'cargas_est': 'Cargas'
+        'viv_urbana': 'Viv. Mz', 'viv_dispersa': 'Viv. SecDisp',
+        'viv_total': 'Viv. total',
+        'cargas_urb_exact': 'Cargas urb.',
+        'cargas_exact': 'Cargas exactas',
+        'cargas_total': 'Cargas (ceil)'
     })
-    cargas_show['Mz']      = cargas_show['Mz'].astype(int)
-    cargas_show['SecDisp'] = cargas_show['SecDisp'].astype(int)
-    cargas_show['Viv.']    = cargas_show['Viv.'].astype(int)
-    cargas_show['Cargas']  = cargas_show['Cargas'].astype(int)
 
     sobrecarga_df, megas_df = detectar_violaciones_reglas(
         df_ana, max_cargas_enc=MAX_CARGAS_ENC, max_viv_carga=MAX_VIV_CARGA
@@ -1883,64 +1865,81 @@ with tab_analisis:
     n_sobre = len(sobrecarga_df)
     n_megas = len(megas_df)
 
+    # Alertas
     if n_sobre == 0 and n_megas == 0:
         st.markdown(
             f"<div class='rule-ok'>✓ Todas las cargas respetan las reglas: "
-            f"≤{MAX_CARGAS_ENC} cargas/encuestador y ≤{MAX_VIV_CARGA} viv/carga "
-            f"(en el filtro actual).</div>",
+            f"≤{MAX_CARGAS_ENC} cargas/encuestador, ≤{MAX_VIV_CARGA} viv/carga "
+            f"urbana (filtro actual).</div>",
             unsafe_allow_html=True
         )
     else:
         if n_sobre > 0:
             st.markdown(
                 f"<div class='rule-err'>⚠ <b>{n_sobre}</b> encuestador(es) "
-                f"superan el máximo de {MAX_CARGAS_ENC} cargas de trabajo.</div>",
+                f"superan el máximo de {MAX_CARGAS_ENC} cargas.</div>",
                 unsafe_allow_html=True
             )
         if n_megas > 0:
             st.markdown(
-                f"<div class='rule-warn'>ℹ <b>{n_megas}</b> manzana(s) superan "
-                f"{MAX_VIV_CARGA} viviendas (megamanzanas — permitidas como caso "
-                f"excepcional, pero cuentan como varias cargas).</div>",
+                f"<div class='rule-warn'>ℹ <b>{n_megas}</b> manzana(s) individuales "
+                f"con > {MAX_VIV_CARGA} viviendas (megamanzanas — caso excepcional "
+                f"permitido).</div>",
                 unsafe_allow_html=True
             )
 
-    def color_cargas(val):
+    # Coloreado de la tabla
+    def color_cargas_total(val):
         try:
             v = int(val)
             if v > MAX_CARGAS_ENC:
-                return 'background-color: #fef2f2; color: #991b1b; font-weight: 600'
+                return 'background-color: #fef2f2; color: #991b1b; font-weight: 700'
             if v == MAX_CARGAS_ENC:
                 return 'background-color: #fffbeb; color: #92400e; font-weight: 600'
+            if v == 0:
+                return 'color: #9ca3af'
             return 'color: #065f46'
         except:
             return ''
 
     st.dataframe(
-        cargas_show.style.map(color_cargas, subset=['Cargas']),
+        cargas_show.style.applymap(color_cargas_total,
+                                     subset=['Cargas (ceil)']),
         use_container_width=True, hide_index=True,
         height=min(400, 35 * len(cargas_show) + 38)
     )
 
-    # Gráfico de cargas por encuestador
+    # Gráfico de barras apiladas: cargas urbanas vs sectores, por encuestador
     cargas_plot = cargas_df.copy()
     cargas_plot['enc_lbl'] = (cargas_plot['equipo'] + " · J" +
                                cargas_plot['jornada'].str[-1] + " · E" +
                                cargas_plot['encuestador'].astype(str))
     cargas_plot = cargas_plot.sort_values(['equipo', 'jornada', 'encuestador'])
+
+    # Armar df "largo" para apilar
+    df_stack = pd.DataFrame({
+        'enc_lbl': list(cargas_plot['enc_lbl']) * 2,
+        'Tipo': (['Cargas urbanas (Mz)'] * len(cargas_plot) +
+                 ['Cargas dispersas (SecDis)'] * len(cargas_plot)),
+        'Cargas': list(cargas_plot['cargas_urb_exact']) +
+                  list(cargas_plot['n_sectores']),
+        'equipo': list(cargas_plot['equipo']) * 2
+    })
+
     fig_c = px.bar(
-        cargas_plot, x='enc_lbl', y='cargas_est',
-        color='equipo',
-        title=f'Cargas de trabajo por encuestador — {jornada_ana}',
-        labels={'enc_lbl': 'Encuestador', 'cargas_est': 'Cargas'},
+        df_stack, x='enc_lbl', y='Cargas', color='Tipo',
+        title=f'Composición de cargas por encuestador — {jornada_ana}',
+        labels={'enc_lbl': 'Encuestador', 'Cargas': 'Cargas de trabajo'},
         template='plotly_white',
-        color_discrete_map=color_map
+        color_discrete_map={'Cargas urbanas (Mz)': '#003B71',
+                             'Cargas dispersas (SecDis)': '#d97706'}
     )
     fig_c.add_hline(y=MAX_CARGAS_ENC, line_dash="dash", line_color="#dc2626",
-                    annotation_text=f"Máx {MAX_CARGAS_ENC} cargas",
+                    annotation_text=f"Máx {MAX_CARGAS_ENC}",
                     annotation_position="top right")
     fig_c.update_layout(paper_bgcolor="#ffffff", plot_bgcolor="#fafbfc",
-                        xaxis_tickangle=-45, title_font_size=13)
+                        xaxis_tickangle=-45, title_font_size=13,
+                        barmode='stack')
     st.plotly_chart(fig_c, use_container_width=True)
 
     if n_megas > 0:
@@ -1977,7 +1976,7 @@ with tab_analisis:
                 df_enc, x='encuestador', y='Viviendas',
                 color='jornada' if jornada_ana == "Ambas" else None,
                 barmode='group', text='Viviendas',
-                title=f'Viviendas por encuestador — {eq_sel} ({jornada_ana})',
+                title=f'Viviendas por encuestador — {eq_sel}',
                 template='plotly_white',
                 color_discrete_sequence=['#2e86de', '#27ae60']
             )
@@ -1994,7 +1993,7 @@ with tab_analisis:
             fig2 = px.bar(
                 df_tipo, x='encuestador', y='N', color='Tipo',
                 barmode='stack',
-                title=f'Manzanas vs Sec. dispersos — {eq_sel} ({jornada_ana})',
+                title=f'Manzanas vs Sec. dispersos — {eq_sel}',
                 template='plotly_white',
                 color_discrete_map={'Mz': '#003B71', 'SecDisp': '#d97706'}
             )
@@ -2014,19 +2013,16 @@ with tab_analisis:
         viv_d = row['viv'] / dias_dur
         for dd in range(d_ini, d_fin + 1):
             rows_exp.append({
-                'equipo': row['equipo'],
-                'jornada': row['jornada'],
+                'equipo': row['equipo'], 'jornada': row['jornada'],
                 'encuestador': int(row.get('encuestador', 0)),
-                'dia_abs': dd,
-                'viv': viv_d
+                'dia_abs': dd, 'viv': viv_d
             })
 
     if rows_exp:
         df_exp = pd.DataFrame(rows_exp)
         if jornada_ana == "Ambas":
             df_exp['dia_rel'] = df_exp.groupby('jornada')['dia_abs'].transform(
-                lambda s: s - s.min() + 1
-            ).astype(int)
+                lambda s: s - s.min() + 1).astype(int)
         else:
             df_exp['dia_rel'] = (df_exp['dia_abs'] - df_exp['dia_abs'].min() + 1).astype(int)
 
@@ -2037,8 +2033,7 @@ with tab_analisis:
                 color='equipo', facet_row='jornada', barmode='group',
                 title='Viv/día por equipo (facetas por jornada)',
                 labels={'dia_rel': 'Día operativo', 'viv': 'Viviendas'},
-                template='plotly_white',
-                color_discrete_map=color_map
+                template='plotly_white', color_discrete_map=color_map
             )
         else:
             pivot_eq = df_exp.groupby(['equipo', 'dia_rel'])['viv'].sum().reset_index()
@@ -2046,16 +2041,13 @@ with tab_analisis:
                 pivot_eq, x='dia_rel', y='viv', color='equipo', barmode='group',
                 title=f'Viv/día por equipo — {jornada_ana}',
                 labels={'dia_rel': 'Día operativo', 'viv': 'Viviendas'},
-                template='plotly_white',
-                color_discrete_map=color_map
+                template='plotly_white', color_discrete_map=color_map
             )
 
         eqs_en_exp = df_exp['equipo'].unique()
-        enc_por_eq = []
-        for ne in eqs_en_exp:
-            cfg_ne = next((e['enc'] for e in eq_cfg if e['nombre'] == ne), None)
-            if cfg_ne is not None:
-                enc_por_eq.append(cfg_ne)
+        enc_por_eq = [next((e['enc'] for e in eq_cfg if e['nombre'] == ne), None)
+                      for ne in eqs_en_exp]
+        enc_por_eq = [x for x in enc_por_eq if x is not None]
         avg_enc_f = np.mean(enc_por_eq) if enc_por_eq else 3
         fig_d.add_hline(y=p["viv_min"] * avg_enc_f, line_dash="dot",
                         line_color="#d97706",
@@ -2081,14 +2073,14 @@ with tab_analisis:
             fig_enc.add_hline(y=p["viv_max"], line_dash="dot",
                               line_color="#dc2626",
                               annotation_text=f"Máx {p['viv_max']}")
-            fig_enc.update_layout(paper_bgcolor="#ffffff", plot_bgcolor="#fafbfc",
-                                  xaxis=dict(dtick=1), title_font_size=12)
+            fig_enc.update_layout(paper_bgcolor="#ffffff",
+                                   plot_bgcolor="#fafbfc",
+                                   xaxis=dict(dtick=1), title_font_size=12)
             st.plotly_chart(fig_enc, use_container_width=True)
         else:
             st.markdown(
                 "<div class='ibox'>💡 Para ver la carga diaria por encuestador, "
-                "filtra una sola jornada arriba (J1 o J2). Mezclar ambas no tiene "
-                "sentido operativo porque cada jornada tiene días independientes.</div>",
+                "filtra una sola jornada arriba.</div>",
                 unsafe_allow_html=True
             )
 
@@ -2106,8 +2098,8 @@ with tab_analisis:
     else:
         st.markdown(
             f"<div class='bcard'><b style='color:#9b59b6'>Equipo Bombero</b> — "
-            f"{n_bm} UPMs · {int(df_bm['viv'].sum()):,} viv (se analiza siempre "
-            f"aparte, no se ve afectado por el filtro de jornada)</div>",
+            f"{n_bm} UPMs · {int(df_bm['viv'].sum()):,} viv (aparte del filtro "
+            f"de jornada)</div>",
             unsafe_allow_html=True
         )
         st.dataframe(
