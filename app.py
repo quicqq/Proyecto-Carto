@@ -1917,7 +1917,7 @@ with tab_analisis:
             return ''
 
     st.dataframe(
-        cargas_show.style.applymap(color_cargas, subset=['Cargas']),
+        cargas_show.style.map(color_cargas, subset=['Cargas']),
         use_container_width=True, hide_index=True,
         height=min(400, 35 * len(cargas_show) + 38)
     )
