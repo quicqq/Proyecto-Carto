@@ -49,41 +49,6 @@ st.set_page_config(page_title="INEC · ENDI Planificación",
 INEC_LOGO = "https://upload.wikimedia.org/wikipedia/commons/a/a8/Logo_del_INEC_Ecuador.png"
 
 st.markdown(f"""
-/\* ── Validación de reglas de carga (v5.2) ─── \*/
-.rule-ok{
-  background:#ecfdf5;border:1px solid #a7f3d0;border-left:3px solid #059669;
-  border-radius:6px;padding:8px 12px;margin:4px 0;font-size:12px;color:#065f46
-}
-.rule-warn{
-  background:#fffbeb;border:1px solid #fde68a;border-left:3px solid #d97706;
-  border-radius:6px;padding:8px 12px;margin:4px 0;font-size:12px;color:#92400e
-}
-.rule-err{
-  background:#fef2f2;border:1px solid #fecaca;border-left:3px solid #dc2626;
-  border-radius:6px;padding:8px 12px;margin:4px 0;font-size:12px;color:#991b1b
-}
-.mini-kpi{
-  background:#ffffff;border:1px solid #e2e6ed;border-radius:8px;
-  padding:10px 12px;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.03)
-}
-.mini-kpi .v{font-family:'JetBrains Mono',monospace;font-size:18px;
-             font-weight:600;color:#003B71;line-height:1}
-.mini-kpi .l{font-size:9px;color:#8896a6;margin-top:4px;
-             text-transform:uppercase;letter-spacing:.5px;font-weight:500}
-.edit-card{
-  background:#f5f3ff;border:1px solid #ddd6fe;border-left:3px solid #7c3aed;
-  border-radius:6px;padding:8px 12px;margin:4px 0;font-size:12px;color:#5b21b6
-}
-.edit-ok{
-  background:#ecfdf5;border:1px solid #a7f3d0;border-left:3px solid #059669;
-  border-radius:6px;padding:8px 12px;margin:4px 0;font-size:12px;color:#065f46
-}
-.edit-count{
-  display:inline-block;background:#7c3aed;color:#fff;border-radius:10px;
-  padding:1px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;
-  font-weight:600;margin-right:6px
-}
-
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -234,6 +199,41 @@ button[kind="primary"]:hover{{
 .sidebar-logo .sidebar-sub{{
   font-size:10px;color:#8896a6!important;margin-top:2px;font-weight:400
 }}
+
+/\* ── Validación de reglas de carga (v5.2) ─── \*/
+.rule-ok{
+  background:#ecfdf5;border:1px solid #a7f3d0;border-left:3px solid #059669;
+  border-radius:6px;padding:8px 12px;margin:4px 0;font-size:12px;color:#065f46
+}
+.rule-warn{
+  background:#fffbeb;border:1px solid #fde68a;border-left:3px solid #d97706;
+  border-radius:6px;padding:8px 12px;margin:4px 0;font-size:12px;color:#92400e
+}
+.rule-err{
+  background:#fef2f2;border:1px solid #fecaca;border-left:3px solid #dc2626;
+  border-radius:6px;padding:8px 12px;margin:4px 0;font-size:12px;color:#991b1b
+}
+.mini-kpi{
+  background:#ffffff;border:1px solid #e2e6ed;border-radius:8px;
+  padding:10px 12px;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.03)
+}
+.mini-kpi .v{font-family:'JetBrains Mono',monospace;font-size:18px;
+             font-weight:600;color:#003B71;line-height:1}
+.mini-kpi .l{font-size:9px;color:#8896a6;margin-top:4px;
+             text-transform:uppercase;letter-spacing:.5px;font-weight:500}
+.edit-card{
+  background:#f5f3ff;border:1px solid #ddd6fe;border-left:3px solid #7c3aed;
+  border-radius:6px;padding:8px 12px;margin:4px 0;font-size:12px;color:#5b21b6
+}
+.edit-ok{
+  background:#ecfdf5;border:1px solid #a7f3d0;border-left:3px solid #059669;
+  border-radius:6px;padding:8px 12px;margin:4px 0;font-size:12px;color:#065f46
+}
+.edit-count{
+  display:inline-block;background:#7c3aed;color:#fff;border-radius:10px;
+  padding:1px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;
+  font-weight:600;margin-right:6px
+}
 </style>
 """, unsafe_allow_html=True)
 
