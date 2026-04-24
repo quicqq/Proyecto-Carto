@@ -258,48 +258,81 @@ def cv_pct(s):
     return float(s.std()/m*100) if m > 0 else 0.0
 
 def calcular_cargas_trabajo(df_plan, max_viv_por_carga=120):
+    """
+    Calcula cargas de trabajo por (equipo, jornada, encuestador) según la
+    lógica acumulativa:
+      - viv_urbanas_acumuladas / 120 = cargas_urbanas (decimal)
+      - + 1 carga por cada sector disperso
+      - cargas_total_exactas = cargas_urbanas + n_sectores
+      - cargas_total = ceil(cargas_total_exactas)
+ 
+    Devuelve DataFrame con columnas:
+      equipo, jornada, encuestador,
+      n_upms, n_manzanas, n_sectores,
+      viv_urbana, viv_dispersa, viv_total,
+      cargas_urb_exact, cargas_exact, cargas_total
+    """
     df = df_plan.copy()
     df = df[~df['equipo'].isin(['sin_asignar'])]
     if len(df) == 0:
-        return pd.DataFrame(columns=['equipo','jornada','encuestador',
-                                     'n_upms','n_manzanas','n_sectores',
-                                     'viv','cargas_est'])
+        return pd.DataFrame(columns=[
+            'equipo', 'jornada', 'encuestador',
+            'n_upms', 'n_manzanas', 'n_sectores',
+            'viv_urbana', 'viv_dispersa', 'viv_total',
+            'cargas_urb_exact', 'cargas_exact', 'cargas_total'
+        ])
  
-    def es_sector(t):
-        return str(t).startswith('sec')
- 
-    df['_es_sec'] = df['tipo_entidad'].apply(es_sector)
+    df['_es_sec'] = df['tipo_entidad'].astype(str).str.startswith('sec')
     df['_es_man'] = ~df['_es_sec']
+    df['_viv_urb'] = np.where(df['_es_man'], df['viv'], 0)
+    df['_viv_dis'] = np.where(df['_es_sec'], df['viv'], 0)
  
-    def cargas_fila(row):
-        if row['_es_sec']:
-            return 1
-        viv = max(1, int(row['viv']))
-        return max(1, int(np.ceil(viv / max_viv_por_carga)))
- 
-    df['_cargas'] = df.apply(cargas_fila, axis=1)
- 
-    g = df.groupby(['equipo','jornada','encuestador']).agg(
-        n_upms     = ('id_entidad','count'),
-        n_manzanas = ('_es_man','sum'),
-        n_sectores = ('_es_sec','sum'),
-        viv        = ('viv','sum'),
-        cargas_est = ('_cargas','sum'),
+    g = df.groupby(['equipo', 'jornada', 'encuestador']).agg(
+        n_upms       = ('id_entidad', 'count'),
+        n_manzanas   = ('_es_man', 'sum'),
+        n_sectores   = ('_es_sec', 'sum'),
+        viv_urbana   = ('_viv_urb', 'sum'),
+        viv_dispersa = ('_viv_dis', 'sum'),
+        viv_total    = ('viv', 'sum'),
     ).reset_index()
+ 
+    g['n_manzanas'] = g['n_manzanas'].astype(int)
+    g['n_sectores'] = g['n_sectores'].astype(int)
+    g['viv_urbana'] = g['viv_urbana'].astype(int)
+    g['viv_dispersa'] = g['viv_dispersa'].astype(int)
+    g['viv_total'] = g['viv_total'].astype(int)
+ 
+    # Lógica correcta
+    g['cargas_urb_exact'] = g['viv_urbana'] / max_viv_por_carga
+    g['cargas_exact']     = g['cargas_urb_exact'] + g['n_sectores']
+    g['cargas_total']     = np.ceil(g['cargas_exact']).astype(int)
+    # Caso borde: si no tiene nada asignado, 0
+    g.loc[(g['viv_urbana'] == 0) & (g['n_sectores'] == 0), 'cargas_total'] = 0
+ 
+    # Redondear decimales para presentación
+    g['cargas_urb_exact'] = g['cargas_urb_exact'].round(2)
+    g['cargas_exact']     = g['cargas_exact'].round(2)
+ 
     return g
-
-
+ 
+ 
 def detectar_violaciones_reglas(df_plan, max_cargas_enc=5, max_viv_carga=120):
+    """
+    Devuelve (sobrecarga, megamanzanas) según la nueva lógica.
+    Sobrecarga: encuestadores cuyo cargas_total > max_cargas_enc.
+    Megamanzanas: manzanas individuales con > max_viv_carga viviendas.
+    """
     cargas_df = calcular_cargas_trabajo(df_plan, max_viv_carga)
-    sobrecarga = cargas_df[cargas_df['cargas_est'] > max_cargas_enc].copy()
+    sobrecarga = cargas_df[cargas_df['cargas_total'] > max_cargas_enc].copy()
  
     mask_mega = (~df_plan['tipo_entidad'].astype(str).str.startswith('sec')) & \
                 (df_plan['viv'] > max_viv_carga) & \
                 (~df_plan['equipo'].isin(['sin_asignar']))
-    megas = df_plan[mask_mega][['id_entidad','tipo_entidad','viv',
-                                 'equipo','jornada','encuestador']].copy()
+    megas = df_plan[mask_mega][['id_entidad', 'tipo_entidad', 'viv',
+                                 'equipo', 'jornada', 'encuestador']].copy()
     megas = megas.sort_values('viv', ascending=False).reset_index(drop=True)
     return sobrecarga, megas
+ 
 
 
 def utm_to_wgs84(df):
